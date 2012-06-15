@@ -301,7 +301,7 @@ class Balancer(object):
                 host = headers['Host']
             except KeyError:
                 host = "unknown"
-            headers['Connection'] = "close"
+            headers['Connection'] = "close\r"
             if not internal:
                 headers['X-Forwarded-For'] = address[0]
                 headers['X-Forwarded-Protocol'] = ""
