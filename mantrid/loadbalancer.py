@@ -34,7 +34,7 @@ class Balancer(object):
         "no_hosts": NoHosts,
     }
 
-    def __init__(self, external_addresses, internal_addresses, management_addresses, state_file, uid=None, gid=65535, static_dir="/etc/mantrid/static/"):
+    def __init__(self, external_addresses, internal_addresses, management_addresses, state_file, uid=None, gid=65535, static_dir="/etc/mantrid/static/", load_balance_header='Host'):
         """
         Constructor.
 
@@ -51,6 +51,7 @@ class Balancer(object):
         self.uid = uid
         self.gid = gid
         self.static_dir = static_dir
+        self.load_balance_header = load_balance_header
 
     @classmethod
     def main(cls):
@@ -94,6 +95,7 @@ class Balancer(object):
             config.get_int("uid", 4321),
             config.get_int("gid", 4321),
             config.get("static_dir", "/etc/mantrid/static/"),
+            config.get("load_balance_header", "Host")
         )
         balancer.run()
 
@@ -298,7 +300,7 @@ class Balancer(object):
             headers = mimetools.Message(rfile, 0)
             # Work out the host
             try:
-                host = headers['LoadBalanceTo']
+                host = headers[self.load_balance_header]
             except KeyError:
                 host = "unknown"
             headers['Connection'] = "close\r"

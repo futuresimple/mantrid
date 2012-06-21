@@ -42,7 +42,7 @@ class SimpleConfig(object):
     
     def get_int(self, item, default):
         return int(self.get(item, default))
-    
+
     def get_all(self, item):
         return self.items.get(item, set())
     
