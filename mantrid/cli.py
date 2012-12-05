@@ -1,5 +1,7 @@
 import sys
-from .client import MantridClient
+
+from mantrid.backend import Backend
+from mantrid.client import MantridClient
 
 
 class MantridCli(object):
@@ -47,11 +49,12 @@ class MantridCli(object):
         print format % ("HOST", "ACTION", "SUBDOMS")
         for host, details in sorted(self.client.get_all().items()):
             if details[0] in ("proxy", "mirror"):
-                action = "%s<%s>" % (
+                action = "%s[%s]<%s>" % (
                     details[0],
+                    details[1]['algorithm'],
                     ",".join(
-                        "%s:%s" % (host, port)
-                        for host, port in details[1]['backends']
+                        "%s:%s" % (backend.host, backend.port)
+                        for backend in details[1]['backends']
                     )
                 )
             elif details[0] == "static":
@@ -114,7 +117,7 @@ class MantridCli(object):
         # Expand some options from text to datastructure
         if "backends" in options:
             options['backends'] = [
-                (lambda x: (x[0], int(x[1])))(bit.split(":", 1))
+                Backend((lambda x: (x[0], int(x[1])))(bit.split(":", 1)))
                 for bit in options['backends'].split(",")
             ]
         # Set!

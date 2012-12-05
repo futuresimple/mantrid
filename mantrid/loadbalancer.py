@@ -4,17 +4,20 @@ import logging
 import traceback
 import mimetools
 import resource
-import json
 import os
 import sys
 import argparse
+
 from eventlet import wsgi
 from eventlet.green import socket
-from .actions import Unknown, Proxy, Empty, Static, Redirect, NoHosts, Spin
-from .config import SimpleConfig
-from .management import ManagementApp
-from .stats_socket import StatsSocket
-from .greenbody import GreenBody
+
+import mantrid.json
+
+from mantrid.actions import Unknown, Proxy, Empty, Static, Redirect, NoHosts, Spin
+from mantrid.config import SimpleConfig
+from mantrid.management import ManagementApp
+from mantrid.stats_socket import StatsSocket
+from mantrid.greenbody import GreenBody
 
 
 class Balancer(object):
@@ -103,7 +106,7 @@ class Balancer(object):
             if os.path.getsize(self.state_file) <= 1:
                 raise IOError("File is empty.")
             with open(self.state_file) as fh:
-                state = json.load(fh)
+                state = mantrid.json.load(fh)
                 assert isinstance(state, dict)
                 self.hosts = state['hosts']
                 self.stats = state['stats']
@@ -117,7 +120,7 @@ class Balancer(object):
     def save(self):
         "Saves the state to the state file"
         with open(self.state_file, "w") as fh:
-            json.dump({
+            mantrid.json.dump({
                 "hosts": self.hosts,
                 "stats": self.stats,
             }, fh)

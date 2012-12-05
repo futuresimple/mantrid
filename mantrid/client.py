@@ -3,8 +3,8 @@ try:
     httplib2 = eventlet.import_patched("httplib2")
 except ImportError:
     import httplib2
-import json
 
+import mantrid.json
 
 class MantridClient(object):
     """
@@ -20,10 +20,10 @@ class MantridClient(object):
         resp, content = h.request(
             self.base_url + path,
             method,
-            body = json.dumps(body),
+            body = mantrid.json.dump(body),
         )
         if resp['status'] == "200":
-            return json.loads(content)
+            return mantrid.json.load(content)
         else:
             raise IOError(
                 "Got %s reponse from server (%s)" % (

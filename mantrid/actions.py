@@ -3,12 +3,16 @@ Contains Mantrid's built-in actions.
 """
 
 import errno
+import operator
 import os
 import random
+
 import eventlet
 from eventlet.green import socket
 from httplib import responses
-from .socketmeld import SocketMelder
+
+from mantrid.backend import Backend
+from mantrid.socketmeld import SocketMelder
 
 
 class Action(object):
@@ -128,35 +132,47 @@ class Proxy(Action):
     attempts = 1
     delay = 1
 
-    def __init__(self, balancer, host, matched_host, backends, attempts=None, delay=None):
+    def __init__(self, balancer, host, matched_host, backends, attempts=None, delay=None, algorithm='random'):
         super(Proxy, self).__init__(balancer, host, matched_host)
         self.backends = backends
+        self.algorithm = 'random'
+        self.select_backend = self.least_connections if algorithm == 'least_connections' else self.random
         assert self.backends
         if attempts is not None:
             self.attempts = int(attempts)
         if delay is not None:
             self.delay = float(delay)
 
+    def random(self):
+        return random.choice(self.backends)
+
+    def least_connections(self):
+        return min(self.backends, key=operator.attrgetter('connections'))
+
     def handle(self, sock, read_data, path, headers):
         "Sends back a static error page."
         for i in range(self.attempts):
             try:
-                server_sock = eventlet.connect(
-                    tuple(random.choice(self.backends)),
-                )
+                backend = self.select_backend()
+                server_sock = eventlet.connect((backend.host, backend.port))
+                backend.add_connection()
             except socket.error:
                 eventlet.sleep(self.delay)
                 continue
+
             # Function to help track data usage
             def send_onwards(data):
                 server_sock.sendall(data)
                 return len(data)
+
             try:
                 size = send_onwards(read_data)
                 size += SocketMelder(sock, server_sock).run()
             except socket.error, e:
                 if e.errno != errno.EPIPE:
                     raise
+            finally:
+                backend.drop_connection()
 
 
 class Spin(Action):
