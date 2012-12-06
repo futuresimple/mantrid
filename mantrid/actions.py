@@ -150,7 +150,6 @@ class Proxy(Action):
         return min(self.backends, key=operator.attrgetter('connections'))
 
     def handle(self, sock, read_data, path, headers):
-        "Sends back a static error page."
         for i in range(self.attempts):
             try:
                 backend = self.select_backend()
