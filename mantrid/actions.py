@@ -3,6 +3,7 @@ Contains Mantrid's built-in actions.
 """
 
 import errno
+import logging
 import operator
 import os
 import random
@@ -132,10 +133,11 @@ class Proxy(Action):
     attempts = 1
     delay = 1
 
-    def __init__(self, balancer, host, matched_host, backends, attempts=None, delay=None, algorithm='random'):
+    def __init__(self, balancer, host, matched_host, backends, attempts=None, delay=None, algorithm='random', healthcheck=False):
         super(Proxy, self).__init__(balancer, host, matched_host)
         self.backends = backends
-        self.algorithm = 'random'
+        self.algorithm = algorithm
+        self.healthcheck = healthcheck
         self.select_backend = self.least_connections if algorithm == 'least_connections' else self.random
         assert self.backends
         if attempts is not None:
@@ -143,11 +145,15 @@ class Proxy(Action):
         if delay is not None:
             self.delay = float(delay)
 
+
+    def valid_backends(self):
+        return [b for b in self.backends if not b.blacklisted or not self.healthcheck]
+
     def random(self):
-        return random.choice(self.backends)
+        return random.choice(self.valid_backends())
 
     def least_connections(self):
-        return min(self.backends, key=operator.attrgetter('connections'))
+        return min(self.valid_backends(), key=operator.attrgetter('connections'))
 
     def handle(self, sock, read_data, path, headers):
         for i in range(self.attempts):
@@ -156,6 +162,9 @@ class Proxy(Action):
                 server_sock = eventlet.connect((backend.host, backend.port))
                 backend.add_connection()
             except socket.error:
+                if self.healthcheck and not backend.blacklisted:
+                    logging.warn("Blacklisting backend %s", backend)
+                    backend.blacklisted = True
                 eventlet.sleep(self.delay)
                 continue
 

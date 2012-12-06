@@ -49,9 +49,10 @@ class MantridCli(object):
         print format % ("HOST", "ACTION", "SUBDOMS")
         for host, details in sorted(self.client.get_all().items()):
             if details[0] in ("proxy", "mirror"):
-                action = "%s[%s]<%s>" % (
+                action = "%s[algorithm=%s,healthcheck=%s]<%s>" % (
                     details[0],
-                    details[1]['algorithm'],
+                    details[1].get('algorithm', 'default'),
+                    details[1].get('healthcheck', False),
                     ",".join(
                         "%s:%s" % (backend.host, backend.port)
                         for backend in details[1]['backends']
@@ -105,6 +106,9 @@ class MantridCli(object):
         if action in ("proxy, mirror") and "backends" not in options:
             sys.stderr.write("The %s action requires a backends option.\n" % action)
             sys.exit(1)
+        if "healthcheck" in options and options["healthcheck"].lower() not in ("true", "false"):
+            sys.stderr.write("The healthcheck option must be one of (true, false)")
+            sys.exit(1)
         if action == "static" and "type" not in options:
             sys.stderr.write("The %s action requires a type option.\n" % action)
             sys.exit(1)
@@ -120,6 +124,8 @@ class MantridCli(object):
                 Backend((lambda x: (x[0], int(x[1])))(bit.split(":", 1)))
                 for bit in options['backends'].split(",")
             ]
+        if "healthcheck" in options:
+            options['healthcheck'] = (options['healthcheck'].lower() == "true")
         # Set!
         self.client.set(
             hostname,
@@ -144,3 +150,6 @@ class MantridCli(object):
                 details.get("bytes_received", 0),
                 details.get("bytes_sent", 0),
             )
+
+if __name__ == "__main__":
+    MantridCli.main()

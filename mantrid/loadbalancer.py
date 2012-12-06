@@ -20,6 +20,36 @@ from mantrid.stats_socket import StatsSocket
 from mantrid.greenbody import GreenBody
 
 
+class ManagedHostDict(dict):
+    def __init__(self, *args, **kwargs):
+        super(ManagedHostDict, self).__init__(*args, **kwargs)
+        for host in self:
+            if self[host][1].get('healthcheck', False):
+                self._start_health_check_of(host)
+
+    def __setitem__(self, host, settings):
+        if host in self:
+            self._retire_backends_of(host)
+
+        super(ManagedHostDict, self).__setitem__(host, settings)
+
+        if settings[1].get('healthcheck', False):
+            self._start_health_check_of(host)
+
+    def __delitem__(self, host):
+        if host in self and self[host][1].get('healthcheck', False):
+            self._retire_backends_of(host)
+        super(ManagedHostDict, self).__delitem__(host)
+
+    def _retire_backends_of(self, host):
+        for backend in self[host][1].get("backends", []):
+            backend.retired = True
+
+    def _start_health_check_of(self, host):
+        for backend in self[host][1].get("backends", []):
+            backend.start_health_check()
+
+
 class Balancer(object):
     """
     Main loadbalancer class.
@@ -54,6 +84,7 @@ class Balancer(object):
         self.uid = uid
         self.gid = gid
         self.static_dir = static_dir
+        self.hosts = ManagedHostDict()
 
     @classmethod
     def main(cls):
@@ -114,7 +145,7 @@ class Balancer(object):
                 self.stats[key]['open_requests'] = 0
         except (IOError, OSError):
             # There is no state file; start empty.
-            self.hosts = {}
+            self.hosts = ManagedHostDict()
             self.stats = {}
 
     def save(self):
@@ -352,5 +383,15 @@ class Balancer(object):
             except:
                 logging.error(traceback.format_exc())
 
+    def _set_hosts(self, hosts):
+        self.__dict__['hosts'] = ManagedHostDict(hosts)
+
+    def _get_hosts(self):
+        return self.__dict__['hosts']
+
+    hosts = property(fget=_get_hosts, fset=_set_hosts)
+
+
 if __name__ == "__main__":
     Balancer.main()
+
