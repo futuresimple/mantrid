@@ -175,11 +175,13 @@ class Proxy(Action):
 
             try:
                 size = send_onwards(read_data)
-                size += SocketMelder(sock, server_sock).run(on_finish=backend.drop_connection)
+                size += SocketMelder(sock, server_sock).run()
                 break
             except socket.error, e:
                 if e.errno != errno.EPIPE:
                     raise
+            finally:
+                backend.drop_connection()
 
 
 class Spin(Action):
