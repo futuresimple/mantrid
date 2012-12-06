@@ -32,7 +32,13 @@ class SocketMelder(object):
         except greenlet.GreenletExit:
             return
 
-    def run(self):
+    def run(self, on_finish=lambda: None):
+        try:
+            return self._run()
+        finally:
+            on_finish()
+
+    def _run(self):
         self.threads = {
             "ctos": eventlet.spawn(self.piper, self.server, self.client, "client", "stoc"),
             "stoc": eventlet.spawn(self.piper, self.client, self.server, "server", "ctos"),
