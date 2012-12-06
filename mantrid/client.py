@@ -20,10 +20,10 @@ class MantridClient(object):
         resp, content = h.request(
             self.base_url + path,
             method,
-            body = mantrid.json.dump(body),
+            body = mantrid.json.dumps(body),
         )
         if resp['status'] == "200":
-            return mantrid.json.load(content)
+            return mantrid.json.loads(content)
         else:
             raise IOError(
                 "Got %s reponse from server (%s)" % (

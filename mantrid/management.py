@@ -44,21 +44,21 @@ class ManagementApp(object):
         # Handle errors
         except HttpNotFound:
             start_response('404 Not Found', [('Content-Type', 'application/json')])
-            return [mantrid.json.dump({"error": "not_found"})]
+            return [mantrid.json.dumps({"error": "not_found"})]
         except HttpMethodNotAllowed:
             start_response('405 Method Not Allowed', [('Content-Type', 'application/json')])
-            return [mantrid.json.dump({"error": "method_not_allowed"})]
+            return [mantrid.json.dumps({"error": "method_not_allowed"})]
         # Dispatch to the named method
         body = environ['wsgi.input'].read()
         if body:
-            body = mantrid.json.load(body)
+            body = mantrid.json.loads(body)
         response = handler(
             environ['PATH_INFO'].lower(),
             body,
         )
         # Send the response
         start_response('200 OK', [('Content-Type', 'application/json')])
-        return [mantrid.json.dump(response)]
+        return [mantrid.json.dumps(response)]
 
     def route(self, path, method):
         # Simple routing for paths

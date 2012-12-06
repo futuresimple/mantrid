@@ -32,7 +32,9 @@ def dumps(*args, **kwargs):
 
 def dump(*args, **kwargs):
     """Securely dump objects to JSON, supporting custom mantrid types."""
-    return dumps(*args, **kwargs)
+    new_kwargs = copy.copy(kwargs)
+    new_kwargs['cls'] = MantridEncoder
+    return json.dump(*args, **new_kwargs)
 
 def loads(*args, **kwargs):
     """Securely load objects from JSON, supporting custom mantrid types."""
@@ -42,5 +44,7 @@ def loads(*args, **kwargs):
 
 def load(*args, **kwargs):
     """Securely load objects from JSON, supporting custom mantrid types."""
-    return loads(*args, **kwargs)
+    new_kwargs = copy.copy(kwargs)
+    new_kwargs['object_hook'] = load_mantrid
+    return json.load(*args, **new_kwargs)
 
