@@ -145,7 +145,6 @@ class Proxy(Action):
         if delay is not None:
             self.delay = float(delay)
 
-
     def valid_backends(self):
         return [b for b in self.backends if not b.blacklisted or not self.healthcheck]
 
@@ -153,7 +152,11 @@ class Proxy(Action):
         return random.choice(self.valid_backends())
 
     def least_connections(self):
-        return min(self.valid_backends(), key=operator.attrgetter('connections'))
+        backends = self.valid_backends()
+        min_connections = min(b.connections for b in backends)
+
+        # this is possibly a little bit safer than always returning the first backend
+        return random.choice([b for b in backends if b.connections == min_connections])
 
     def handle(self, sock, read_data, path, headers):
         for i in range(self.attempts):
