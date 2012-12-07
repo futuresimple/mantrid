@@ -245,25 +245,31 @@ class Balancer(object):
         """
         Accepts management requests.
         """
-        try:
-            sock = eventlet.listen(address, family)
-        except socket.error, e:
-            logging.critical("Cannot listen on (%s, %s): %s" % (address, family, e))
-            return
-        # Sleep to ensure we've dropped privileges by the time we start serving
-        eventlet.sleep(0.5)
-        # Actually serve management
-        logging.info("Listening for management on %s" % (address, ))
-        management_app = ManagementApp(self)
-        try:
-            with open("/dev/null", "w") as log_dest:
-                wsgi.server(
-                    sock,
-                    management_app.handle,
-                    log = log_dest,
-                )
-        finally:
-            sock.close()
+        while True:
+            try:
+                try:
+                    sock = eventlet.listen(address, family)
+                except socket.error, e:
+                    logging.critical("Cannot listen on (%s, %s): %s" % (address, family, e))
+                    return
+                # Sleep to ensure we've dropped privileges by the time we start serving
+                eventlet.sleep(0.5)
+                # Actually serve management
+                logging.info("Listening for management on %s" % (address, ))
+                management_app = ManagementApp(self)
+                try:
+                    with open("/dev/null", "w") as log_dest:
+                        wsgi.server(
+                            sock,
+                            management_app.handle,
+                            log = log_dest,
+                        )
+                finally:
+                    sock.close()
+            except:
+                logging.error("Management loop failed with exception", exc_info=True)
+                # don't let it spin too fast
+                eventlet.sleep(1)
 
     ### Client handling ###
 
