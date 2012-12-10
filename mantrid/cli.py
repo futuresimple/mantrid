@@ -1,5 +1,6 @@
 import sys
 
+from mantrid.actions import Proxy
 from mantrid.backend import Backend
 from mantrid.client import MantridClient
 
@@ -51,8 +52,8 @@ class MantridCli(object):
             if details[0] in ("proxy", "mirror"):
                 action = "%s[algorithm=%s,healthcheck=%s]<%s>" % (
                     details[0],
-                    details[1].get('algorithm', 'default'),
-                    details[1].get('healthcheck', False),
+                    details[1].get('algorithm', Proxy.default_algorithm),
+                    details[1].get('healthcheck', Proxy.default_healthcheck),
                     ",".join(
                         "%s:%s" % (backend.host, backend.port)
                         for backend in details[1]['backends']

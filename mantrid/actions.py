@@ -132,13 +132,15 @@ class Proxy(Action):
 
     attempts = 1
     delay = 1
+    default_healthcheck = True
+    default_algorithm = "least_connections"
 
-    def __init__(self, balancer, host, matched_host, backends, attempts=None, delay=None, algorithm='random', healthcheck=False):
+    def __init__(self, balancer, host, matched_host, backends, attempts=None, delay=None, algorithm=default_algorithm, healthcheck=default_healthcheck):
         super(Proxy, self).__init__(balancer, host, matched_host)
         self.backends = backends
         self.algorithm = algorithm
         self.healthcheck = healthcheck
-        self.select_backend = self.least_connections if algorithm == 'least_connections' else self.random
+        self.select_backend = self.random if algorithm == 'random' else self.least_connections
         assert self.backends
         if attempts is not None:
             self.attempts = int(attempts)
