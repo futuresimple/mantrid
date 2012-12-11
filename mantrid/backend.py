@@ -47,14 +47,14 @@ class Backend(object):
                 logging.warn("Stopping health-checking of %s", self)
                 break
 
-            logging.info("Checking health of %s", self)
+            logging.debug("Checking health of %s", self)
             try:
                 socket = eventlet.connect((self.host, self.port))
-                logging.info("%s is alive, making sure it is not blacklisted", self)
+                logging.debug("%s is alive, making sure it is not blacklisted", self)
                 self.blacklisted = False
                 socket.close()
             except:
-                logging.info("%s seems dead, will check again later", self)
+                logging.debug("%s seems dead, will check again later", self)
                 pass
 
             eventlet.sleep(self.health_check_delay_seconds)
