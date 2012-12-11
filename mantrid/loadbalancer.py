@@ -131,13 +131,22 @@ class Balancer(object):
         )
         balancer.run()
 
+    def _converted_from_old_format(self, objtree):
+        hosts = objtree['hosts']
+        for host, settings in hosts.items():
+            backends = settings[1]['backends']
+            if backends and not isinstance(backends[0], mantrid.backend.Backend):
+                new_backends = map(mantrid.backend.Backend, backends)
+                settings[1]['backends'] = new_backends
+        return objtree
+
     def load(self):
         "Loads the state from the state file"
         try:
             if os.path.getsize(self.state_file) <= 1:
                 raise IOError("File is empty.")
             with open(self.state_file) as fh:
-                state = mantrid.json.load(fh)
+                state = self._converted_from_old_format(mantrid.json.load(fh))
                 assert isinstance(state, dict)
                 self.hosts = state['hosts']
                 self.stats = state['stats']
