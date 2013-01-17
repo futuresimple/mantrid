@@ -45,6 +45,9 @@ class SimpleConfig(object):
     
     def get_all(self, item):
         return self.items.get(item, set())
+
+    def get_strings(self, item, default):
+        return [ i.strip() for i in self.get(item,default).split(",")]
     
     def get_all_addresses(self, item, default=None):
         addresses = set()

@@ -10,6 +10,7 @@ import argparse
 
 from eventlet import wsgi
 from eventlet.green import socket
+from datetime import datetime
 
 import mantrid.json
 
@@ -19,6 +20,14 @@ from mantrid.management import ManagementApp
 from mantrid.stats_socket import StatsSocket
 from mantrid.greenbody import GreenBody
 
+class RateCounter:
+
+    def __init__(self,rate):
+        self.last_check = datetime.now()
+        self.allowance = rate
+
+class RateException(Exception):
+    pass
 
 class ManagedHostDict(dict):
     def __init__(self, *args, **kwargs):
@@ -57,6 +66,7 @@ class Balancer(object):
 
     nofile = 102400
     save_interval = 10
+    rate_counters = {}
     action_mapping = {
         "proxy": Proxy,
         "empty": Empty,
@@ -67,7 +77,7 @@ class Balancer(object):
         "no_hosts": NoHosts,
     }
 
-    def __init__(self, external_addresses, internal_addresses, management_addresses, state_file, uid=None, gid=65535, static_dir="/etc/mantrid/static/"):
+    def __init__(self, external_addresses, internal_addresses, management_addresses, state_file, uid=None, gid=65535, static_dir="/etc/mantrid/static/", rps=0, rps_headers=""):
         """
         Constructor.
 
@@ -85,6 +95,8 @@ class Balancer(object):
         self.gid = gid
         self.static_dir = static_dir
         self.hosts = ManagedHostDict()
+        self.rps = rps
+        self.rps_headers = rps_headers
 
     @classmethod
     def main(cls):
@@ -128,6 +140,8 @@ class Balancer(object):
             config.get_int("uid", 4321),
             config.get_int("gid", 4321),
             config.get("static_dir", "/etc/mantrid/static/"),
+            config.get_int("rps_limit", 5),
+            config.get_strings("rps_headers", "X-Rate-Header"),
         )
         balancer.run()
 
@@ -354,6 +368,32 @@ class Balancer(object):
             except KeyError:
                 host = "unknown"
             headers['Connection'] = "close\r"
+
+            # Rate limiting logic
+            if any([ True if headers.get(x) is not None else False for x in self.rps_headers ]):
+              token = ""
+              for rps_header in self.rps_headers:
+                header = headers.get(rps_header)
+                if not header is None:
+                  token += header
+              current_time = datetime.now()
+              if self.rate_counters.get(token) is None:
+                self.rate_counters[token] = RateCounter(self.rps)
+              else:
+                current_counter = self.rate_counters.get(token)
+                td = current_time - current_counter.last_check
+                time_passed = (td.microseconds + (td.seconds + td.days * 24 * 3600) * 10**6) / 10**6 #python 2.6 workaround, total_seconds() was added in 2.7
+                current_counter.last_check = current_time
+                current_counter.allowance += time_passed * (self.rps / 1.0) # 1.0 indicates one second interval
+                if current_counter.allowance > self.rps:
+                  current_counter.allowance = self.rps
+                if current_counter.allowance < 1.0:
+                  raise RateException(token)
+                else:
+                  current_counter.allowance -= 1.0
+
+                self.rate_counters[token] = current_counter
+
             if not internal:
                 headers['X-Forwarded-For'] = address[0]
                 headers['X-Forwarded-Protocol'] = ""
@@ -387,6 +427,13 @@ class Balancer(object):
         except socket.error, e:
             if e.errno not in (errno.EPIPE, errno.ETIMEDOUT, errno.ECONNRESET):
                 logging.error(traceback.format_exc())
+        except RateException, e:
+            logging.warning("Limiting " + e.args[0])
+            try:
+                sock.sendall("HTTP/1.0 420 Enhance Your Calm\r\n\r\n")
+            except socket.error, e:
+                if e.errno != errno.EPIPE:
+                    raise
         except:
             logging.error(traceback.format_exc())
             try:
