@@ -11,7 +11,6 @@ import argparse
 from eventlet import wsgi
 from eventlet.green import socket
 from datetime import datetime
-from collections import defaultdict
 
 import mantrid.json
 
@@ -23,9 +22,13 @@ from mantrid.greenbody import GreenBody
 
 class RateCounter(object):
 
-    def __init__(self,rate):
+    def __init__(self, rate):
         self.last_check = datetime.now()
         self.allowance = rate
+
+    def time_passed(self, current_time):
+        td = current_time - self.last_check
+        return  (td.microseconds + (td.seconds + td.days * 24 * 3600) * 10**6) / 10**6 #python 2.6 workaround, total_seconds() was added in 2.7
 
 class RateException(Exception):
     pass
@@ -67,6 +70,8 @@ class Balancer(object):
 
     nofile = 102400
     save_interval = 10
+    rate_counters = {}
+    maintenance_interval = 2
     action_mapping = {
         "proxy": Proxy,
         "empty": Empty,
@@ -97,7 +102,6 @@ class Balancer(object):
         self.hosts = ManagedHostDict()
         self.max_rps = max_rps
         self.rps_headers = rps_headers
-        self.rate_counters = defaultdict(lambda: RateCounter(self.max_rps))
 
     @classmethod
     def main(cls):
@@ -205,6 +209,7 @@ class Balancer(object):
             1
         )
         pool.spawn(self.save_loop)
+        pool.spawn(self.maintenance_loop)
         for address, family in self.external_addresses:
             pool.spawn(self.listen_loop, address, family, internal=False)
         for address, family in self.internal_addresses:
@@ -247,6 +252,20 @@ class Balancer(object):
         # We're done
         self.running = False
         logging.info("Exiting")
+
+    def maintenance_loop(self):
+        """
+        Manages rate limiting list
+        """
+        while self.running:
+            try:
+                eventlet.sleep(self.maintenance_interval)
+                current_time = datetime.now()
+                for k,v in self.rate_counters.items():
+                    if v.time_passed(current_time) > self.maintenance_interval:
+                        del self.rate_counters[k]
+            except:
+                logging.error("Failed to clean up rate limits", exc_info=True)
 
     ### Management ###
 
@@ -375,17 +394,19 @@ class Balancer(object):
                 rate_limiting_headers = [headers.get(h) for h in self.rps_headers]
                 token = "".join([header for header in rate_limiting_headers if header])
                 current_time = datetime.now()
-                current_counter = self.rate_counters[token]
-                td = current_time - current_counter.last_check
-                time_passed = (td.microseconds + (td.seconds + td.days * 24 * 3600) * 10**6) / 10**6 #python 2.6 workaround, total_seconds() was added in 2.7
-                current_counter.last_check = current_time
-                current_counter.allowance += time_passed * (self.max_rps / 1.0) # 1.0 indicates one second interval
-                if current_counter.allowance > self.max_rps:
-                    current_counter.allowance = self.max_rps
-                if current_counter.allowance < 1.0:
-                    raise RateException(token)
+                if self.rate_counters.get(token) is None:
+                    self.rate_counters[token] = RateCounter(self.max_rps)
                 else:
-                    current_counter.allowance -= 1.0
+                    current_counter = self.rate_counters.get(token)
+                    time_passed = current_counter.time_passed(current_time)
+                    current_counter.last_check = current_time
+                    current_counter.allowance += time_passed * (self.max_rps / 1.0) # 1.0 indicates one second interval
+                    if current_counter.allowance > self.max_rps:
+                        current_counter.allowance = self.max_rps
+                    if current_counter.allowance < 1.0:
+                        raise RateException(token)
+                    else:
+                        current_counter.allowance -= 1.0
 
             if not internal:
                 headers['X-Forwarded-For'] = address[0]
