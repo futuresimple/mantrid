@@ -206,7 +206,7 @@ class Balancer(object):
             len(self.external_addresses) +
             len(self.internal_addresses) +
             len(self.management_addresses) +
-            1
+            2
         )
         pool.spawn(self.save_loop)
         pool.spawn(self.maintenance_loop)
