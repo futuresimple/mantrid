@@ -81,6 +81,11 @@ class ManagementApp(object):
                 return self.set_all
             else:
                 raise HttpMethodNotAllowed()
+        elif path == "/rates/":
+            if method == "get":
+                return self.get_rates
+            else:
+                raise HttpMethodNotAllowed()
         elif self.host_regex.match(path):
             if method == "get":
                 return self.get_single
@@ -116,6 +121,9 @@ class ManagementApp(object):
 
     def get_all(self, path, body):
         return self.balancer.hosts
+
+    def get_rates(self, path, body):
+        return {'limited_counter': self.balancer.limited_counter_tail}
 
     def set_all(self, path, body):
         "Replaces the hosts list with the provided input"
