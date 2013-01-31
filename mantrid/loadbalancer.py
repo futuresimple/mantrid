@@ -72,7 +72,6 @@ class Balancer(object):
     save_interval = 10
     rate_counters = {}
     maintenance_interval = 2
-    monitoring_interval = 10
     action_mapping = {
         "proxy": Proxy,
         "empty": Empty,
@@ -208,11 +207,10 @@ class Balancer(object):
             len(self.external_addresses) +
             len(self.internal_addresses) +
             len(self.management_addresses) +
-            3
+            2
         )
         pool.spawn(self.save_loop)
         pool.spawn(self.maintenance_loop)
-        pool.spawn(self.monitoring_loop)
         for address, family in self.external_addresses:
             pool.spawn(self.listen_loop, address, family, internal=False)
         for address, family in self.internal_addresses:
@@ -255,15 +253,6 @@ class Balancer(object):
         # We're done
         self.running = False
         logging.info("Exiting")
-
-    def monitoring_loop(self):
-        while self.running:
-            try:
-                self.limited_counter_tail = self.limited_counter
-                self.limited_counter = 0
-                eventlet.sleep(self.monitoring_interval)
-            except:
-                logging.error("Failed to update metrics", exc_info=True)
 
     def maintenance_loop(self):
         """
