@@ -123,7 +123,7 @@ class ManagementApp(object):
         return self.balancer.hosts
 
     def get_rates(self, path, body):
-        return {'limited_counter': self.balancer.limited_counter_tail}
+        return {'limited_counter': self.balancer.limited_counter}
 
     def set_all(self, path, body):
         "Replaces the hosts list with the provided input"
