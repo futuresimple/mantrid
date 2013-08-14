@@ -24,6 +24,7 @@ LISTING_LINE_RE = re.compile('(?P<name>[.\w-]+)\s+(?P<action>\w+)\[(?P<options>[
 
 assert LISTING_LINE_RE.match(LISTING_LINE_TEST)
 
+MantridConfiguration = collections.namedtuple("MantridConfiguration", "name action options backends subdomains")
 
 def mantrid_configuration():
     p = subprocess.Popen(list_command(), stdout=subprocess.PIPE)
@@ -32,10 +33,14 @@ def mantrid_configuration():
     if configuration:
         configuration = configuration[1:]
     configuration = [line for line in configuration if line.strip()]
-    return [LISTING_LINE_RE.match(line).groupdict() for line in configuration]
+    return [MantridConfiguration(**LISTING_LINE_RE.match(line).groupdict()) for line in configuration]
     
 
 def mantrid_set(host, backends, dry_run=True, interactive=False):
+    if not backends:
+        print "No doing anything because %s would have no backends left" % (host, )
+        return
+
     verb = "would call" if dry_run else "calling"
     print "%s: %s" % (verb, ' '.join(set_command(host, backends)), )
     if not dry_run:
@@ -46,7 +51,7 @@ def mantrid_set(host, backends, dry_run=True, interactive=False):
             really_run = yes_no.strip().lower() == 'y'
 
         if really_run:
-            return subprocess.call(set_command(host, backends))
+            subprocess.call(set_command(host, backends))
 
 
 def hostname(fqdn):
@@ -65,9 +70,9 @@ def sanity_check():
     host_backends = collections.defaultdict(set)
 
     for host in hosts:
-        fqdn = host["name"]
+        fqdn = host.name
         name = hostname(fqdn)
-        backends = host["backends"].split(',')
+        backends = host.backends.split(',')
 
         if name in host_backends:
             if sorted(host_backends[name]) != sorted(backends):
@@ -87,21 +92,31 @@ def sanity_check():
                 print "Hosts %s and %s share backend %s" % (host1, host2, backend)
 
 
-def remove_host(host_to_remove, dry_run, interactive):
+def remove_backends(host_to_remove, dry_run, interactive):
     hosts = mantrid_configuration()
+    changed = set()
     for host in hosts:
-        backends = host["backends"].split(',')
+        backends = host.backends.split(',')
         hosts_ports = [tuple(backend.split(':')) for backend in backends]
         new_host_ports = [(name, port) for name, port in hosts_ports if name != host_to_remove]
 
         if hosts_ports != new_host_ports:
+            changed.add(host)
             new_backends = ["%s:%s" % (name, port) for name, port in new_host_ports]
-            mantrid_set(host["name"], new_backends, dry_run, interactive)
+            mantrid_set(host.name, new_backends, dry_run, interactive)
+
+    return changed
+
+
+def restore_hosts(original, changed, dry_run, interactive):
+    for host in [h for h in original if h in changed]:
+        mantrid_set(host.name, [hb for hb in host.backends.split(',')], dry_run, interactive)
         
 
 if __name__ == "__main__":
     parser = optparse.OptionParser()
-    parser.add_option("-r", "--remove-backend", dest="backend_to_remove", help="Remove the given backend from all hosts", metavar="ip:port")
+    parser.add_option("-r", "--remove-backend", dest="backend_to_remove", help="Remove the given backend from all hosts", metavar="ip")
+    parser.add_option("-p", "--pause-backed", dest="pause_backend", help="Remove the given backend from all hosts, then add it back after a prompt", action="store_true", default=False)
     parser.add_option("-s", "--sanity-check", dest="sanity_check", help="Check current configuration for sanity", action="store_true")
     parser.add_option("-d", "--dry-run", dest="dry_run", help="Show what would happen, without excecuting", action="store_true", default=False)
     parser.add_option("-i", "--interactive", dest="interactive", help="Prompt before every change", action="store_true", default=False)
@@ -110,6 +125,12 @@ if __name__ == "__main__":
 
     if options.sanity_check:
         sanity_check()
-    if options.backend_to_remove:
-        remove_host(options.backend_to_remove, dry_run=options.dry_run, interactive=options.interactive)
+    elif options.backend_to_remove:
+        original = mantrid_configuration()
+        changed = remove_backends(options.backend_to_remove, dry_run=options.dry_run, interactive=options.interactive)
+        if options.pause_backend:
+            print "Press enter to re-add all hosts"
+            raw_input()
+            restore_hosts(original, changed, dry_run=options.dry_run, interactive=options.interactive)
+
 
