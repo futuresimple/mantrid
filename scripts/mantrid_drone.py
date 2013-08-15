@@ -92,13 +92,13 @@ def sanity_check():
                 print "Hosts %s and %s share backend %s" % (host1, host2, backend)
 
 
-def remove_backends(host_to_remove, dry_run, interactive):
+def remove_backends(backends_to_remove, dry_run, interactive):
     hosts = mantrid_configuration()
     changed = set()
     for host in hosts:
         backends = host.backends.split(',')
         hosts_ports = [tuple(backend.split(':')) for backend in backends]
-        new_host_ports = [(name, port) for name, port in hosts_ports if name != host_to_remove]
+        new_host_ports = [(name, port) for name, port in hosts_ports if name not in backends_to_remove]
 
         if hosts_ports != new_host_ports:
             changed.add(host)
@@ -115,7 +115,7 @@ def restore_hosts(original, changed, dry_run, interactive):
 
 if __name__ == "__main__":
     parser = optparse.OptionParser()
-    parser.add_option("-r", "--remove-backend", dest="backend_to_remove", help="Remove the given backend from all hosts", metavar="ip")
+    parser.add_option("-r", "--remove-backend", dest="backends_to_remove", help="Remove the given backend from all hosts", action="append")
     parser.add_option("-p", "--pause-backed", dest="pause_backend", help="Remove the given backend from all hosts, then add it back after a prompt", action="store_true", default=False)
     parser.add_option("-s", "--sanity-check", dest="sanity_check", help="Check current configuration for sanity", action="store_true")
     parser.add_option("-d", "--dry-run", dest="dry_run", help="Show what would happen, without excecuting", action="store_true", default=False)
@@ -125,9 +125,9 @@ if __name__ == "__main__":
 
     if options.sanity_check:
         sanity_check()
-    elif options.backend_to_remove:
+    elif options.backends_to_remove:
         original = mantrid_configuration()
-        changed = remove_backends(options.backend_to_remove, dry_run=options.dry_run, interactive=options.interactive)
+        changed = remove_backends(options.backends_to_remove, dry_run=options.dry_run, interactive=options.interactive)
         if options.pause_backend:
             print "Press enter to re-add all hosts"
             raw_input()
