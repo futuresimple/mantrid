@@ -22,7 +22,7 @@ class MantridCli(object):
             if method_name.startswith("action_") \
                and method_name != "action_names":
                 yield method_name[7:]
-        
+
     def run(self, argv):
         # Work out what action we're doing
         try:
@@ -43,7 +43,7 @@ class MantridCli(object):
             sys.exit(1)
         # Run it
         getattr(self, "action_%s" % action)(*argv[2:])
-    
+
     def action_list(self):
         "Lists all hosts on the LB"
         format = "%-35s %-25s %-8s"
@@ -55,7 +55,7 @@ class MantridCli(object):
                     details[1].get('algorithm', Proxy.default_algorithm),
                     details[1].get('healthcheck', Proxy.default_healthcheck),
                     ",".join(
-                        "%s:%s" % (backend.host, backend.port)
+                        "%s:%s:%s" % (backend.host, backend.port, backend.blacklisted)
                         for backend in details[1]['backends']
                     )
                 )
@@ -77,7 +77,7 @@ class MantridCli(object):
             else:
                 action = details[0]
             print format % (host, action, details[2])
-    
+
     def action_set(self, hostname=None, action=None, subdoms=None, *args):
         "Adds a hostname to the LB, or alters an existing one"
         usage = "set <hostname> <action> <subdoms> [option=value, ...]"
@@ -132,13 +132,13 @@ class MantridCli(object):
             hostname,
             [action, options, subdoms.lower() == "true"]
         )
-    
+
     def action_delete(self, hostname):
         "Deletes the hostname from the LB."
         self.client.delete(
             hostname,
         )
-    
+
     def action_stats(self, hostname=None):
         "Shows stats (possibly limited by hostname)"
         format = "%-35s %-11s %-11s %-11s %-11s"
