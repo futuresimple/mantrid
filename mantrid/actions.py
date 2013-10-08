@@ -137,6 +137,7 @@ class Proxy(Action):
 
     def __init__(self, balancer, host, matched_host, backends, attempts=None, delay=None, algorithm=default_algorithm, healthcheck=default_healthcheck):
         super(Proxy, self).__init__(balancer, host, matched_host)
+        self.host = host
         self.backends = backends
         self.algorithm = algorithm
         self.healthcheck = healthcheck
@@ -155,6 +156,9 @@ class Proxy(Action):
 
     def least_connections(self):
         backends = self.valid_backends()
+        if len(backends) == 0:
+          logging.warn("No healthy backends for host: %s!", self.host)
+
         min_connections = min(b.connections for b in backends)
 
         # this is possibly a little bit safer than always returning the first backend
