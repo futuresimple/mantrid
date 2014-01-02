@@ -82,7 +82,7 @@ class Balancer(object):
         "no_hosts": NoHosts,
     }
 
-    def __init__(self, external_addresses, internal_addresses, management_addresses, state_file, uid=None, gid=65535, static_dir="/etc/mantrid/static/", max_rps=0, rps_headers=""):
+    def __init__(self, external_addresses, internal_addresses, management_addresses, state_file, uid=None, gid=65535, static_dir="/etc/mantrid/static/", max_rps=0, rps_headers=[], blacklisted_rps_headers={}):
         """
         Constructor.
 
@@ -102,6 +102,8 @@ class Balancer(object):
         self.hosts = ManagedHostDict()
         self.max_rps = max_rps
         self.rps_headers = rps_headers
+        self.blacklisted_rps_headers = blacklisted_rps_headers
+        print blacklisted_rps_headers
         self.limited_counter = 0
 
     @classmethod
@@ -138,6 +140,8 @@ class Balancer(object):
         else:
             logging.info("Using configuration file %s" % args.config)
         config = SimpleConfig(args.config)
+
+        blacklisted_rps_headers = dict([pair.split('=') for pair in config.get_strings("blacklisted_rps_headers", "") if pair])
         balancer = cls(
             config.get_all_addresses("bind", set([(("::", 80), socket.AF_INET6)])),
             config.get_all_addresses("bind_internal"),
@@ -148,6 +152,7 @@ class Balancer(object):
             config.get("static_dir", "/etc/mantrid/static/"),
             config.get_int("max_rps", 5),
             config.get_strings("rps_headers", "X-Rate-Header"),
+            blacklisted_rps_headers,
         )
         balancer.run()
 
@@ -391,8 +396,13 @@ class Balancer(object):
             headers['Connection'] = "close\r"
 
             # Rate limiting logic
-            if any([ True if headers.get(x) is not None else False for x in self.rps_headers ]):
+            print self.rps_headers
+            matching_headers = [ (headers.get(x) in self.blacklisted_rps_headers.get(x, [])) for x in self.rps_headers ]
+            print matching_headers
+            if any(matching_headers):
+                print "Something to throttle", matching_headers
                 rate_limiting_headers = [headers.get(h) for h in self.rps_headers]
+                print rate_limiting_headers
                 token = "-".join([header for header in rate_limiting_headers if header])
                 current_time = datetime.now()
                 if self.rate_counters.get(token) is None:
@@ -407,7 +417,7 @@ class Balancer(object):
                     if current_counter.allowance < 1.0:
                         logging.warning("Limiting %s", token)
                         self.limited_counter += 1
-                        #raise RateException(token)
+                        raise RateException(token)
                     else:
                         current_counter.allowance -= 1.0
 

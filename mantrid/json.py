@@ -5,7 +5,8 @@ supports custom mantrid data types.
 from __future__ import absolute_import
 
 import copy
-import json
+
+import simplejson as json
 
 import mantrid.backend
 
