@@ -10,8 +10,18 @@ class Backend(object):
     def __init__(self, address_tuple):
         self.address_tuple = address_tuple
         self.active_connections = 0
-        self.blacklisted = False 
+        self._blacklisted = False 
         self.retired = False
+
+    @property
+    def blacklisted(self):
+        return self._blacklisted
+
+    @blacklisted.setter
+    def blacklisted(self, value):
+        if value:
+            self.start_health_check()
+        self._blacklisted = value
 
     @property
     def address(self):
@@ -43,19 +53,20 @@ class Backend(object):
 
     def _health_check_loop(self):
         while True:
-            if self.retired:
+            if self.retired or not self.blacklisted:
                 logging.warn("Stopping health-checking of %s", self)
                 break
 
-            logging.debug("Checking health of %s", self)
-            try:
-                socket = eventlet.connect((self.host, self.port))
-                logging.debug("%s is alive, making sure it is not blacklisted", self)
-                self.blacklisted = False
-                socket.close()
-            except:
-                logging.debug("%s seems dead, will check again later", self)
-                pass
-
+            self._check_health()
             eventlet.sleep(self.health_check_delay_seconds)
+
+    def _check_health(self):
+        logging.debug("Checking health of %s", self)
+        try:
+            socket = eventlet.connect((self.host, self.port))
+            logging.debug("%s is alive, making sure it is not blacklisted", self)
+            self.blacklisted = False
+            socket.close()
+        except:
+            logging.debug("%s seems dead, will check again later", self)
 

@@ -23,18 +23,12 @@ from mantrid.greenbody import GreenBody
 class ManagedHostDict(dict):
     def __init__(self, *args, **kwargs):
         super(ManagedHostDict, self).__init__(*args, **kwargs)
-        for host in self:
-            if self[host][1].get('healthcheck', Proxy.default_healthcheck):
-                self._start_health_check_of(host)
 
     def __setitem__(self, host, settings):
         if host in self:
             self._retire_backends_of(host)
 
         super(ManagedHostDict, self).__setitem__(host, settings)
-
-        if settings[1].get('healthcheck', Proxy.default_healthcheck):
-            self._start_health_check_of(host)
 
     def __delitem__(self, host):
         if host in self and self[host][1].get('healthcheck', Proxy.default_healthcheck):
@@ -44,11 +38,6 @@ class ManagedHostDict(dict):
     def _retire_backends_of(self, host):
         for backend in self[host][1].get("backends", []):
             backend.retired = True
-
-    def _start_health_check_of(self, host):
-        for backend in self[host][1].get("backends", []):
-            backend.start_health_check()
-
 
 class Balancer(object):
     """
