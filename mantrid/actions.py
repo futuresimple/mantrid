@@ -130,8 +130,8 @@ class Redirect(Action):
 class Proxy(Action):
     "Proxies them through to a server. What loadbalancers do."
 
-    attempts = 2
-    delay = 0.5
+    attempts = 1
+    delay = 1
     default_healthcheck = True
     default_algorithm = "least_connections"
 
@@ -165,7 +165,7 @@ class Proxy(Action):
         return random.choice([b for b in backends if b.connections == min_connections])
 
     def handle(self, sock, read_data, path, headers):
-        for attempt in range(self.attempts):
+        for i in range(self.attempts):
             try:
                 backend = self.select_backend()
                 server_sock = eventlet.connect((backend.host, backend.port))
@@ -174,10 +174,7 @@ class Proxy(Action):
                 if self.healthcheck and not backend.blacklisted:
                     logging.warn("Blacklisting backend %s", backend)
                     backend.blacklisted = True
-
-                if attempt < self.attempts - 1:
-                    eventlet.sleep(self.delay)
-
+                eventlet.sleep(self.delay)
                 continue
 
             # Function to help track data usage
