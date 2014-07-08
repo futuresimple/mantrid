@@ -40,6 +40,6 @@ setup(
     install_requires = [
         "httplib2",
         "argparse",
-        "eventlet>=0.9.16",
+        "eventlet==0.14.0",
     ],
 )
