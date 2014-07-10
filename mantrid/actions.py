@@ -10,6 +10,7 @@ import random
 
 import eventlet
 from eventlet.green import socket
+from eventlet.timeout import Timeout
 from httplib import responses
 
 from mantrid.backend import Backend
@@ -134,6 +135,7 @@ class Proxy(Action):
     delay = 1
     default_healthcheck = True
     default_algorithm = "least_connections"
+    connection_timeout_seconds = 2
 
     def __init__(self, balancer, host, matched_host, backends, attempts=None, delay=None, algorithm=default_algorithm, healthcheck=default_healthcheck):
         super(Proxy, self).__init__(balancer, host, matched_host)
@@ -166,14 +168,22 @@ class Proxy(Action):
 
     def handle(self, sock, read_data, path, headers):
         for i in range(self.attempts):
+            backend = self.select_backend()
             try:
-                backend = self.select_backend()
-                server_sock = eventlet.connect((backend.host, backend.port))
-                backend.add_connection()
+                timeout = Timeout(self.connection_timeout_seconds)
+                try:
+                    server_sock = eventlet.connect((backend.host, backend.port))
+                    backend.add_connection()
+                finally:
+                    timeout.cancel()
             except socket.error:
-                if self.healthcheck and not backend.blacklisted:
-                    logging.warn("Blacklisting backend %s", backend)
-                    backend.blacklisted = True
+                logging.exception("Socket error on connect() to %s", backend)
+                self.blacklist(backend)
+                eventlet.sleep(self.delay)
+                continue
+            except:
+                logging.exception("Timeout on connect() to %s", backend)
+                self.blacklist(backend)
                 eventlet.sleep(self.delay)
                 continue
 
@@ -191,6 +201,11 @@ class Proxy(Action):
                     raise
             finally:
                 backend.drop_connection()
+
+    def blacklist(self, backend):
+        if self.healthcheck and not backend.blacklisted:
+            logging.warn("Blacklisting backend %s", backend)
+            backend.blacklisted = True
 
 
 class Spin(Action):

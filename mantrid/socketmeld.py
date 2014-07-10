@@ -1,12 +1,15 @@
 import eventlet
 import greenlet
 from eventlet.green import socket
+from eventlet.timeout import Timeout
 
 
 class SocketMelder(object):
     """
     Takes two sockets and directly connects them together.
     """
+
+    transmission_timeout_seconds = 30
 
     def __init__(self, client, server):
         self.client = client
@@ -16,19 +19,23 @@ class SocketMelder(object):
     def piper(self, in_sock, out_sock, out_addr, onkill):
         "Worker thread for data reading"
         try:
-            while True:
-                written = in_sock.recv(32768)
-                if not written:
+            timeout = Timeout(self.transmission_timeout_seconds)
+            try:
+                while True:
+                    written = in_sock.recv(32768)
+                    if not written:
+                        try:
+                            out_sock.shutdown(socket.SHUT_WR)
+                        except socket.error:
+                            self.threads[onkill].kill()
+                        break
                     try:
-                        out_sock.shutdown(socket.SHUT_WR)
+                        out_sock.sendall(written)
                     except socket.error:
-                        self.threads[onkill].kill()
-                    break
-                try:
-                    out_sock.sendall(written)
-                except socket.error:
-                    pass
-                self.data_handled += len(written)
+                        pass
+                    self.data_handled += len(written)
+            finally:
+                timeout.cancel()
         except greenlet.GreenletExit:
             return
 
@@ -39,12 +46,21 @@ class SocketMelder(object):
         }
         try:
             self.threads['stoc'].wait()
-        except (greenlet.GreenletExit, socket.error):
+        except (greenlet.GreenletExit, socket.error, Timeout):
             pass
         try:
             self.threads['ctos'].wait()
-        except (greenlet.GreenletExit, socket.error):
+        except (greenlet.GreenletExit, socket.error, Timeout):
             pass
-        self.server.close()
-        self.client.close()
+
+        try:
+            self.server.close()
+        except:
+            logging.exception("Exception caught closing server socket")
+
+        try:
+            self.client.close()
+        except:
+            logging.exception("Exception caught closing client socket")
+
         return self.data_handled
