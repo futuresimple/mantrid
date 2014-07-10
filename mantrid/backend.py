@@ -56,7 +56,8 @@ class Backend(object):
     def _health_check_loop(self):
         while True:
             if self.retired or not self.blacklisted:
-                logging.warn("Stopping health-checking of %s", self)
+                reason = "removing backend" if self.retired else "available"
+                logging.warn("Stopping health-checking of %s: %s", self, reason)
                 break
 
             self._check_health()

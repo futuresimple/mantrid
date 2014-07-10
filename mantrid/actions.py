@@ -173,16 +173,17 @@ class Proxy(Action):
                 timeout = Timeout(self.connection_timeout_seconds)
                 try:
                     server_sock = eventlet.connect((backend.host, backend.port))
-                    backend.add_connection()
                 finally:
                     timeout.cancel()
+
+                backend.add_connection()
             except socket.error:
-                logging.exception("Socket error on connect() to %s", backend)
+                logging.exception("Socket error on connect() to %s of %s", backend, self.host)
                 self.blacklist(backend)
                 eventlet.sleep(self.delay)
                 continue
             except:
-                logging.exception("Timeout on connect() to %s", backend)
+                logging.warn("Timeout on connect() to %s of %s", backend, self.host)
                 self.blacklist(backend)
                 eventlet.sleep(self.delay)
                 continue
@@ -194,7 +195,7 @@ class Proxy(Action):
 
             try:
                 size = send_onwards(read_data)
-                size += SocketMelder(sock, server_sock).run()
+                size += SocketMelder(sock, server_sock, backend, self.host).run()
                 break
             except socket.error, e:
                 if e.errno != errno.EPIPE:
