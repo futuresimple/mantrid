@@ -131,7 +131,7 @@ class Redirect(Action):
 class Proxy(Action):
     "Proxies them through to a server. What loadbalancers do."
 
-    attempts = 1
+    attempts = 2
     delay = 1
     default_healthcheck = True
     default_algorithm = "least_connections"
@@ -167,40 +167,44 @@ class Proxy(Action):
         return random.choice([b for b in backends if b.connections == min_connections])
 
     def handle(self, sock, read_data, path, headers):
-        for i in range(self.attempts):
+        for attempt in range(self.attempts):
+            if attempt > 0:
+                logging.warn("Retrying connection for host %s", self.host)
+
             backend = self.select_backend()
             try:
                 timeout = Timeout(self.connection_timeout_seconds)
                 try:
                     server_sock = eventlet.connect((backend.host, backend.port))
-                    backend.add_connection()
                 finally:
                     timeout.cancel()
+
+                backend.add_connection()
+                break
             except socket.error:
-                logging.exception("Socket error on connect() to %s", backend)
+                logging.exception("Socket error on connect() to %s of %s", backend, self.host)
                 self.blacklist(backend)
                 eventlet.sleep(self.delay)
                 continue
             except:
-                logging.exception("Timeout on connect() to %s", backend)
+                logging.warn("Timeout on connect() to %s of %s", backend, self.host)
                 self.blacklist(backend)
                 eventlet.sleep(self.delay)
                 continue
 
-            # Function to help track data usage
-            def send_onwards(data):
-                server_sock.sendall(data)
-                return len(data)
+        # Function to help track data usage
+        def send_onwards(data):
+            server_sock.sendall(data)
+            return len(data)
 
-            try:
-                size = send_onwards(read_data)
-                size += SocketMelder(sock, server_sock).run()
-                break
-            except socket.error, e:
-                if e.errno != errno.EPIPE:
-                    raise
-            finally:
-                backend.drop_connection()
+        try:
+            size = send_onwards(read_data)
+            size += SocketMelder(sock, server_sock, backend, self.host).run()
+        except socket.error, e:
+            if e.errno != errno.EPIPE:
+                raise
+        finally:
+            backend.drop_connection()
 
     def blacklist(self, backend):
         if self.healthcheck and not backend.blacklisted:
