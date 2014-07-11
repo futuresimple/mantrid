@@ -10,6 +10,7 @@ import random
 
 import eventlet
 from eventlet.green import socket
+from eventlet.timeout import Timeout
 from httplib import responses
 
 from mantrid.backend import Backend
@@ -130,10 +131,11 @@ class Redirect(Action):
 class Proxy(Action):
     "Proxies them through to a server. What loadbalancers do."
 
-    attempts = 1
+    attempts = 2
     delay = 1
     default_healthcheck = True
     default_algorithm = "least_connections"
+    connection_timeout_seconds = 2
 
     def __init__(self, balancer, host, matched_host, backends, attempts=None, delay=None, algorithm=default_algorithm, healthcheck=default_healthcheck):
         super(Proxy, self).__init__(balancer, host, matched_host)
@@ -165,32 +167,49 @@ class Proxy(Action):
         return random.choice([b for b in backends if b.connections == min_connections])
 
     def handle(self, sock, read_data, path, headers):
-        for i in range(self.attempts):
+        for attempt in range(self.attempts):
+            if attempt > 0:
+                logging.warn("Retrying connection for host %s", self.host)
+
+            backend = self.select_backend()
             try:
-                backend = self.select_backend()
-                server_sock = eventlet.connect((backend.host, backend.port))
+                timeout = Timeout(self.connection_timeout_seconds)
+                try:
+                    server_sock = eventlet.connect((backend.host, backend.port))
+                finally:
+                    timeout.cancel()
+
                 backend.add_connection()
+                break
             except socket.error:
-                if self.healthcheck and not backend.blacklisted:
-                    logging.warn("Blacklisting backend %s", backend)
-                    backend.blacklisted = True
+                logging.exception("Socket error on connect() to %s of %s", backend, self.host)
+                self.blacklist(backend)
+                eventlet.sleep(self.delay)
+                continue
+            except:
+                logging.warn("Timeout on connect() to %s of %s", backend, self.host)
+                self.blacklist(backend)
                 eventlet.sleep(self.delay)
                 continue
 
-            # Function to help track data usage
-            def send_onwards(data):
-                server_sock.sendall(data)
-                return len(data)
+        # Function to help track data usage
+        def send_onwards(data):
+            server_sock.sendall(data)
+            return len(data)
 
-            try:
-                size = send_onwards(read_data)
-                size += SocketMelder(sock, server_sock).run()
-                break
-            except socket.error, e:
-                if e.errno != errno.EPIPE:
-                    raise
-            finally:
-                backend.drop_connection()
+        try:
+            size = send_onwards(read_data)
+            size += SocketMelder(sock, server_sock, backend, self.host).run()
+        except socket.error, e:
+            if e.errno != errno.EPIPE:
+                raise
+        finally:
+            backend.drop_connection()
+
+    def blacklist(self, backend):
+        if self.healthcheck and not backend.blacklisted:
+            logging.warn("Blacklisting backend %s", backend)
+            backend.blacklisted = True
 
 
 class Spin(Action):

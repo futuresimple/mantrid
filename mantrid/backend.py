@@ -2,10 +2,12 @@ import eventlet
 import logging
 
 from eventlet.green import socket
+from eventlet.timeout import Timeout
 
 class Backend(object):
 
-    health_check_delay_seconds = 1
+    healthcheck_delay_seconds = 1
+    healthcheck_timeout_seconds = 1
 
     def __init__(self, address_tuple):
         self.address_tuple = address_tuple
@@ -54,16 +56,22 @@ class Backend(object):
     def _health_check_loop(self):
         while True:
             if self.retired or not self.blacklisted:
-                logging.warn("Stopping health-checking of %s", self)
+                reason = "removing backend" if self.retired else "available"
+                logging.warn("Stopping health-checking of %s: %s", self, reason)
                 break
 
             self._check_health()
-            eventlet.sleep(self.health_check_delay_seconds)
+            eventlet.sleep(self.healthcheck_delay_seconds)
 
     def _check_health(self):
         logging.debug("Checking health of %s", self)
         try:
-            socket = eventlet.connect((self.host, self.port))
+            timeout = Timeout(self.healthcheck_timeout_seconds)
+            try:
+                socket = eventlet.connect((self.host, self.port))
+            finally:
+                timeout.cancel()
+
             logging.debug("%s is alive, making sure it is not blacklisted", self)
             self.blacklisted = False
             socket.close()
