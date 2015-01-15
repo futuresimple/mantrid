@@ -339,7 +339,7 @@ class Balancer(object):
             headers = mimetools.Message(rfile, 0)
             # Work out the host
             try:
-                host = headers['LoadBalanceTo']
+                host = headers['X-Loadbalance-To'] if 'X-Loadbalance-To' in headers else headers['LoadBalanceTo']
             except KeyError:
                 host = "unknown"
             headers['Connection'] = "close\r"
