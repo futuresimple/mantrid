@@ -161,8 +161,6 @@ class Proxy(Action):
 
     def least_connections(self):
         backends = self.valid_backends()
-        if len(backends) == 0:
-          logging.warn("No healthy backends for host: %s!", self.host)
         
         try:
             min_connections = min(b.connections for b in backends)
