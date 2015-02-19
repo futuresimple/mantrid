@@ -379,7 +379,7 @@ class Balancer(object):
         except NoHealthyBackends, e:
             logging.error("No healthy bakckends available!")
             try:
-                sock.sendall("HTTP/1.0 503 No Healthy Backends\r\n\r\nNo healthy bakckends available.")
+                sock.sendall("HTTP/1.0 597 No Healthy Backends\r\n\r\nNo healthy bakckends available.")
             except socket.error, e:
                 if e.errno != errno.EPIPE:
                     raise
