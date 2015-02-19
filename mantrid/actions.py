@@ -16,6 +16,9 @@ from httplib import responses
 from mantrid.backend import Backend
 from mantrid.socketmeld import SocketMelder
 
+class NoHealthyBackends(Exception):
+    "Poll of usable backends is empty"
+    pass
 
 class Action(object):
     "Base action. Doesn't do anything."
@@ -160,8 +163,11 @@ class Proxy(Action):
         backends = self.valid_backends()
         if len(backends) == 0:
           logging.warn("No healthy backends for host: %s!", self.host)
-
-        min_connections = min(b.connections for b in backends)
+        
+        try:
+            min_connections = min(b.connections for b in backends)
+        except ValueError:
+            raise NoHealthyBackends()
 
         # this is possibly a little bit safer than always returning the first backend
         return random.choice([b for b in backends if b.connections == min_connections])
