@@ -13,7 +13,7 @@ from eventlet.green import socket
 
 import mantrid.json
 
-from mantrid.actions import Unknown, Proxy, Empty, Static, Redirect, NoHosts, Spin
+from mantrid.actions import NoHealthyBackends, Unknown, Proxy, Empty, Static, Redirect, NoHosts, Spin
 from mantrid.config import SimpleConfig
 from mantrid.management import ManagementApp
 from mantrid.stats_socket import StatsSocket
@@ -376,6 +376,13 @@ class Balancer(object):
         except socket.error, e:
             if e.errno not in (errno.EPIPE, errno.ETIMEDOUT, errno.ECONNRESET):
                 logging.error(traceback.format_exc())
+        except NoHealthyBackends, e:
+            logging.error("No healthy bakckends available for host '%s'" % host)
+            try:
+                sock.sendall("HTTP/1.0 597 No Healthy Backends\r\n\r\nNo healthy bakckends available.")
+            except socket.error, e:
+                if e.errno != errno.EPIPE:
+                    raise
         except:
             logging.error(traceback.format_exc())
             try:
