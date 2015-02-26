@@ -13,7 +13,7 @@ from eventlet.green import socket
 
 import mantrid.json
 
-from mantrid.actions import NoHealthyBackends, Unknown, Proxy, Empty, Static, Redirect, NoHosts, Spin
+from mantrid.actions import NoHealthyBackends, Unknown, Proxy, Empty, Static, Redirect, NoHosts, Spin, Alias
 from mantrid.config import SimpleConfig
 from mantrid.management import ManagementApp
 from mantrid.stats_socket import StatsSocket
@@ -51,6 +51,7 @@ class Balancer(object):
         "empty": Empty,
         "static": Static,
         "redirect": Redirect,
+        "alias": Alias,
         "unknown": Unknown,
         "spin": Spin,
         "no_hosts": NoHosts,
@@ -123,10 +124,11 @@ class Balancer(object):
     def _converted_from_old_format(self, objtree):
         hosts = objtree['hosts']
         for host, settings in hosts.items():
-            backends = settings[1]['backends']
-            if backends and not isinstance(backends[0], mantrid.backend.Backend):
-                new_backends = map(mantrid.backend.Backend, backends)
-                settings[1]['backends'] = new_backends
+            if settings[0] == "proxy":
+                backends = settings[1]['backends']
+                if backends and not isinstance(backends[0], mantrid.backend.Backend):
+                    new_backends = map(mantrid.backend.Backend, backends)
+                    settings[1]['backends'] = new_backends
         return objtree
 
     def load(self):

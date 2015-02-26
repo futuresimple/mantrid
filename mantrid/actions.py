@@ -244,3 +244,20 @@ class Spin(Action):
         # OK, nothing happened, so give up.
         action = Static(self.balancer, self.host, self.matched_host, type="timeout")
         return action.handle(sock, read_data, path, headers)
+
+class Alias(Action):
+    """
+    Alias for another backend
+    """
+    def __init__(self, balancer, host, matched_host, hostname, **kwargs):
+        self.host = host
+        self.balancer = balancer
+        self.matched_host = matched_host
+        self.hostname = hostname
+
+        action, kwargs, allow_subs = self.balancer.hosts[self.hostname]
+        action_class = self.balancer.action_mapping[action]
+        self.aliased = action_class(balancer = self.balancer, host = self.host, matched_host = self.matched_host, **kwargs)
+
+    def handle(self, **kwargs):
+        return self.aliased.handle(**kwargs)

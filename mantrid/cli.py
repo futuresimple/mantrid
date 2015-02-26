@@ -74,6 +74,11 @@ class MantridCli(object):
                     details[0],
                     details[1]['code'],
                 )
+            elif details[0] == "alias":
+                action = "%s<%s>" % (
+                    details[0],
+                    details[1]['hostname'],
+                )
             else:
                 action = details[0]
             print format % (host, action, details[2])
@@ -106,6 +111,9 @@ class MantridCli(object):
         # Sanity-check options
         if action in ("proxy, mirror") and "backends" not in options:
             sys.stderr.write("The %s action requires a backends option.\n" % action)
+            sys.exit(1)
+        if action == "alias" and "hostname" not in options:
+            sys.stderr.write("The %s action requires hostname option.\n" % action)
             sys.exit(1)
         if "healthcheck" in options and options["healthcheck"].lower() not in ("true", "false"):
             sys.stderr.write("The healthcheck option must be one of (true, false)")
