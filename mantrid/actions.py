@@ -249,7 +249,7 @@ class Alias(Action):
     """
     Alias for another backend
     """
-    def __init__(self, balancer, host, matched_host, hostname, **kwargs):
+    def __init__(self, balancer, host, matched_host, hostname, **_kwargs):
         self.host = host
         self.balancer = balancer
         self.matched_host = matched_host
