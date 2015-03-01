@@ -14,7 +14,7 @@ class Backend(object):
         self.active_connections = 0
         self._blacklisted = False 
         self.retired = False
-        self.address_repr = ':'.join((self.host, str(self.port)))
+        self._address_repr = ':'.join((self.host, str(self.port)))
 
     @property
     def blacklisted(self):
@@ -32,7 +32,7 @@ class Backend(object):
 
     @property
     def address_repr(self):
-        return self.address_repr
+        return self._address_repr
 
     def add_connection(self):
         self.active_connections += 1
