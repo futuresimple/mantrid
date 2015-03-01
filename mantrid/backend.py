@@ -31,7 +31,7 @@ class Backend(object):
         return self.address_tuple
 
     @property
-    def addres_repr(self):
+    def address_repr(self):
         return self.address_repr
 
     def add_connection(self):
