@@ -4,14 +4,15 @@ import eventlet
 from eventlet.green import socket
 
 class Statsd:
-    def __init__(self, host, port):
-        self.host = host
-        self.port = port
+    def __init__(self, prefix, host, port):
+        self.__host = host
+        self.__port = port
+        self.__prefix = prefix
         self.__fail_counter = 0
         self.__suspended = False
         self.__reconnect()
         eventlet.spawn(self.__suspend_check)
-        logging.info("StatsD initialized, host: %s:%d" % (self.host, self.port,))
+        logging.info("StatsD initialized, host: %s:%d" % (self.__host, self.__port,))
 
     def __suspend_check(self):
         while True:
@@ -25,11 +26,13 @@ class Statsd:
 
     def __reconnect(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.connect((self.host, self.port))
+        self.sock.connect((self.__host, self.__port))
 
     def __send(self, message):
         if self.__suspended:
             return
+
+        message = "%s.%s" % (self.__prefix, message)
         try:
             self.sock.send(message)
         except:
@@ -42,4 +45,6 @@ class Statsd:
                 pass
 
     def incr(self, *args):
-        self.__send("%s:1|c" % ".".join((a.replace(".", "-") for a in args)))
+        self.__send("%s:1|c" % ".".join(
+                                    (a.replace(".", "_") for a in args)
+            ))
