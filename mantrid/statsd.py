@@ -11,6 +11,7 @@ class Statsd:
         self.__suspended = False
         self.__reconnect()
         eventlet.spawn(self.__suspend_check)
+        logging.info("StatsD initialized, host: %s:%d" % (self.host, self.port,))
 
     def __suspend_check(self):
         while True:

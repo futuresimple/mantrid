@@ -58,7 +58,7 @@ class Balancer(object):
         "no_hosts": NoHosts,
     }
 
-    def __init__(self, external_addresses, internal_addresses, management_addresses, state_file, uid=None, gid=65535, static_dir="/etc/mantrid/static/"):
+    def __init__(self, external_addresses, internal_addresses, management_addresses, statsd_address, state_file, uid=None, gid=65535, static_dir="/etc/mantrid/static/"):
         """
         Constructor.
 
@@ -76,7 +76,9 @@ class Balancer(object):
         self.gid = gid
         self.static_dir = static_dir
         self.hosts = ManagedHostDict()
-        self.statsd = Statsd('127.0.0.1', 8125)
+
+        statsd = list(statsd_address)
+        self.statsd = Statsd(*statsd[0][0])
 
     @classmethod
     def main(cls):
@@ -116,6 +118,7 @@ class Balancer(object):
             config.get_all_addresses("bind", set([(("::", 80), socket.AF_INET6)])),
             config.get_all_addresses("bind_internal"),
             config.get_all_addresses("bind_management", set([(("127.0.0.1", 8042), socket.AF_INET), (("::1", 8042), socket.AF_INET6)])),
+            config.get_all_addresses("statsd_addr", set([(("127.0.0.1", 8125), socket.AF_INET)])),
             config.get("state_file", "/var/lib/mantrid/state.json"),
             config.get_int("uid", 4321),
             config.get_int("gid", 4321),
