@@ -40,5 +40,5 @@ class Statsd:
                 logging.warning("Sending to statsd failed")
                 pass
 
-    def incr(self, counter):
-        self.__send("%s:1|c" % counter)
+    def incr(self, *args):
+        self.__send("%s:1|c" % ".".join((a.replace(".", "-") for a in args)))

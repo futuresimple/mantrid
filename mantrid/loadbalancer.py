@@ -124,7 +124,7 @@ class Balancer(object):
         balancer.run()
 
     def increment_stats(self, hostname, backend):
-        self.statsd.incr(backend)
+        self.statsd.incr(hostname, backend)
 
     def _converted_from_old_format(self, objtree):
         hosts = objtree['hosts']
