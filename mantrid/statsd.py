@@ -48,3 +48,8 @@ class Statsd:
         self.__send("%s:1|c" % ".".join(
                                     (a.replace(".", "_") for a in args)
             ))
+
+    def gauge(self, value, *args):
+        self.__send("%s:%d|g" % ".".join(
+                                    (a.replace(".", "_") for a in args)
+            ))
