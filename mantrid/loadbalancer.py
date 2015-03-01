@@ -18,6 +18,7 @@ from mantrid.config import SimpleConfig
 from mantrid.management import ManagementApp
 from mantrid.stats_socket import StatsSocket
 from mantrid.greenbody import GreenBody
+from mantrid.statsd import Statsd
 
 
 class ManagedHostDict(dict):
@@ -75,6 +76,7 @@ class Balancer(object):
         self.gid = gid
         self.static_dir = static_dir
         self.hosts = ManagedHostDict()
+        self.statsd = Statsd('127.0.0.1', 8125)
 
     @classmethod
     def main(cls):
@@ -120,6 +122,9 @@ class Balancer(object):
             config.get("static_dir", "/etc/mantrid/static/"),
         )
         balancer.run()
+
+    def increment_stats(self, hostname, backend):
+        self.statsd.incr(backend)
 
     def _converted_from_old_format(self, objtree):
         hosts = objtree['hosts']

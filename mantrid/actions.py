@@ -185,6 +185,7 @@ class Proxy(Action):
                     timeout.cancel()
 
                 backend.add_connection()
+                self.balancer.increment_stats(self.host, backend.address_repr)
                 break
             except socket.error:
                 logging.exception("[%s] Proxy socket error on connect() to %s of %s", request_id, backend, self.host)
