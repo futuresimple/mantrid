@@ -344,6 +344,7 @@ class Balancer(object):
                 host = headers['X-Loadbalance-To'] if 'X-Loadbalance-To' in headers else headers['LoadBalanceTo']
             except KeyError:
                 host = "unknown"
+            request_id = headers.get("X-Request-Id", "-")
             headers['Connection'] = "close\r"
             if not internal:
                 headers['X-Forwarded-For'] = address[0]
@@ -377,15 +378,17 @@ class Balancer(object):
                 stats_dict['bytes_received'] = stats_dict.get('bytes_received', 0) + sock.bytes_received
         except socket.error, e:
             if e.errno not in (errno.EPIPE, errno.ETIMEDOUT, errno.ECONNRESET):
+                logging.error("Loadbalancer socket error, error: %s, request-id: %s", request_id, e)
                 logging.error(traceback.format_exc())
         except NoHealthyBackends, e:
-            logging.error("No healthy bakckends available for host '%s'" % host)
+            logging.error("No healthy bakckends available for host '%s', request-id: %s", host, request_id)
             try:
                 sock.sendall("HTTP/1.0 597 No Healthy Backends\r\n\r\nNo healthy bakckends available.")
             except socket.error, e:
                 if e.errno != errno.EPIPE:
                     raise
-        except:
+        except Exception, e:
+            logging.error("Internal Server Error, request id: %s, error: %s", request_id, e)
             logging.error(traceback.format_exc())
             try:
                 sock.sendall("HTTP/1.0 500 Internal Server Error\r\n\r\nThere has been an internal error in the load balancer.")
