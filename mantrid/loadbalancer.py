@@ -378,17 +378,17 @@ class Balancer(object):
                 stats_dict['bytes_received'] = stats_dict.get('bytes_received', 0) + sock.bytes_received
         except socket.error, e:
             if e.errno not in (errno.EPIPE, errno.ETIMEDOUT, errno.ECONNRESET):
-                logging.error("Loadbalancer socket error, error: %s, request-id: %s", request_id, e)
+                logging.error("[%s] Loadbalancer socket error, error: %s", request_id, e)
                 logging.error(traceback.format_exc())
         except NoHealthyBackends, e:
-            logging.error("No healthy bakckends available for host '%s', request-id: %s", host, request_id)
+            logging.error("[%s] No healthy bakckends available for host '%s'", request_id, host)
             try:
                 sock.sendall("HTTP/1.0 597 No Healthy Backends\r\n\r\nNo healthy bakckends available.")
             except socket.error, e:
                 if e.errno != errno.EPIPE:
                     raise
         except Exception, e:
-            logging.error("Internal Server Error, request id: %s, error: %s", request_id, e)
+            logging.error("[%s] Internal Server Error, error: %s", request_id, e)
             logging.error(traceback.format_exc())
             try:
                 sock.sendall("HTTP/1.0 500 Internal Server Error\r\n\r\nThere has been an internal error in the load balancer.")
