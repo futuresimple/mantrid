@@ -171,9 +171,10 @@ class Proxy(Action):
         return random.choice([b for b in backends if b.connections == min_connections])
 
     def handle(self, sock, read_data, path, headers):
+        request_id = headers.get("X-Request-Id", "-")
         for attempt in range(self.attempts):
             if attempt > 0:
-                logging.warn("Retrying connection for host %s", self.host)
+                logging.warn("[%s] Retrying connection for host %s", request_id, self.host)
 
             backend = self.select_backend()
             try:
@@ -186,12 +187,12 @@ class Proxy(Action):
                 backend.add_connection()
                 break
             except socket.error:
-                logging.exception("Socket error on connect() to %s of %s", backend, self.host)
+                logging.exception("[%s] Proxy socket error on connect() to %s of %s", request_id, backend, self.host)
                 self.blacklist(backend)
                 eventlet.sleep(self.delay)
                 continue
             except:
-                logging.warn("Timeout on connect() to %s of %s", backend, self.host)
+                logging.warn("[%s] Proxy timeout on connect() to %s of %s", request_id, backend, self.host)
                 self.blacklist(backend)
                 eventlet.sleep(self.delay)
                 continue
