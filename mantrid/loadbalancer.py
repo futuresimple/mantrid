@@ -195,6 +195,7 @@ class Balancer(object):
             pool.spawn(self.management_loop, address, family)
         # Give the other threads a chance to open their listening sockets
         eventlet.sleep(0.5)
+        eventlet.spawn(self.send_statsd)
         # Drop to the lesser UID/GIDs, if supplied
         if self.gid:
             try:
@@ -407,6 +408,13 @@ class Balancer(object):
                 rfile.close()
             except:
                 logging.error(traceback.format_exc())
+
+    def send_statsd(self):
+        while True:
+            for host, config in self.hosts.items():
+                for backend in config[1]['backends']:
+                    self.statsd.gauge(backend.active_connections, host, backend.address_repr)
+            eventlet.sleep(5)
 
     def _set_hosts(self, hosts):
         self.__dict__['hosts'] = ManagedHostDict(hosts)

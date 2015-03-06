@@ -50,6 +50,6 @@ class Statsd:
             ))
 
     def gauge(self, value, *args):
-        self.__send("%s:%d|g" % ".".join(
+        self.__send("%s:%d|g" % (".".join(
                                     (a.replace(".", "_") for a in args)
-            ))
+            ), value))

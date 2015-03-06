@@ -185,7 +185,7 @@ class Proxy(Action):
                     timeout.cancel()
 
                 backend.add_connection()
-                self.balancer.statsd.incr("connect", self.host, backend.address_repr)
+                #self.balancer.statsd.incr("connect", self.host, backend.address_repr)
                 break
             except socket.error:
                 logging.exception("[%s] Proxy socket error on connect() to %s of %s", request_id, backend, self.host)
@@ -211,7 +211,7 @@ class Proxy(Action):
                 raise
         finally:
             backend.drop_connection()
-            self.balancer.statsd.incr("disconnect", self.host, backend.address_repr)
+            #self.balancer.statsd.incr("disconnect", self.host, backend.address_repr)
 
     def blacklist(self, backend):
         if self.healthcheck and not backend.blacklisted:
