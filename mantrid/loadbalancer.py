@@ -412,8 +412,11 @@ class Balancer(object):
     def send_statsd(self):
         while True:
             for host, config in self.hosts.items():
-                for backend in config[1]['backends']:
-                    self.statsd.gauge(backend.active_connections, host, backend.address_repr)
+                try:
+                    for backend in config[1]['backends']:
+                        self.statsd.gauge(backend.active_connections, host, backend.address_repr)
+                except:
+                    pass
             eventlet.sleep(5)
 
     def _set_hosts(self, hosts):
