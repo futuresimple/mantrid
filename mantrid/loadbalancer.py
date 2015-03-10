@@ -1,7 +1,6 @@
 import eventlet
 import errno
 import logging
-import traceback
 import mimetools
 import resource
 import os
@@ -89,7 +88,7 @@ class Balancer(object):
         # Output to stderr, always
         sh = logging.StreamHandler()
         sh.setFormatter(logging.Formatter(
-            fmt = "%(asctime)s - %(levelname)8s: %(message)s",
+            fmt = "%(asctime)s - %(levelname)s - %(message)s",
             datefmt="%Y-%m-%d %H:%M:%S",
         ))
         sh.setLevel(logging.DEBUG)
@@ -218,8 +217,8 @@ class Balancer(object):
             pool.wait()
         except (KeyboardInterrupt, StopIteration, SystemExit):
             pass
-        except:
-            logging.error(traceback.format_exc())
+        except Exception, e:
+            logging.error("Unhandled Exception %s" % e)
         # We're done
         self.running = False
         logging.info("Exiting")
@@ -379,17 +378,15 @@ class Balancer(object):
         except socket.error, e:
             if e.errno not in (errno.EPIPE, errno.ETIMEDOUT, errno.ECONNRESET):
                 logging.error("[%s] Loadbalancer socket error, error: %s", request_id, e)
-                logging.error(traceback.format_exc())
         except NoHealthyBackends, e:
-            logging.error("[%s] No healthy bakckends available for host '%s'", request_id, host)
+            logging.error("[%s] No healthy backends available for host '%s'", request_id, host)
             try:
-                sock.sendall("HTTP/1.0 597 No Healthy Backends\r\n\r\nNo healthy bakckends available.")
+                sock.sendall("HTTP/1.0 597 No Healthy Backends\r\n\r\nNo healthy backends available.")
             except socket.error, e:
                 if e.errno != errno.EPIPE:
                     raise
         except Exception, e:
             logging.error("[%s] Internal Server Error, error: %s", request_id, e)
-            logging.error(traceback.format_exc())
             try:
                 sock.sendall("HTTP/1.0 500 Internal Server Error\r\n\r\nThere has been an internal error in the load balancer.")
             except socket.error, e:
@@ -399,8 +396,8 @@ class Balancer(object):
             try:
                 sock.close()
                 rfile.close()
-            except:
-                logging.error(traceback.format_exc())
+            except Exception, e:
+                logging.error("Unhandled Exception %s" % e)
 
     def _set_hosts(self, hosts):
         self.__dict__['hosts'] = ManagedHostDict(hosts)
