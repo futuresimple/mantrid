@@ -88,7 +88,7 @@ class Balancer(object):
         # Output to stderr, always
         sh = logging.StreamHandler()
         sh.setFormatter(logging.Formatter(
-            fmt = "%(asctime)s - %(levelname)8s: %(message)s",
+            fmt = "\"%(asctime)s\" - \"%(levelname)8s\" - \"%(message)s\"",
             datefmt="%Y-%m-%d %H:%M:%S",
         ))
         sh.setLevel(logging.DEBUG)
@@ -377,16 +377,16 @@ class Balancer(object):
                 stats_dict['bytes_received'] = stats_dict.get('bytes_received', 0) + sock.bytes_received
         except socket.error, e:
             if e.errno not in (errno.EPIPE, errno.ETIMEDOUT, errno.ECONNRESET):
-                logging.error("[%s] Loadbalancer socket error, error: %s", request_id, e)
+                logging.error("Loadbalancer socket error, error: %s\" - \"%s", e, request_id)
         except NoHealthyBackends, e:
-            logging.error("[%s] No healthy bakckends available for host '%s'", request_id, host)
+            logging.error("No healthy backends available for host '%s'\" - \"%s", host, request_id)
             try:
-                sock.sendall("HTTP/1.0 597 No Healthy Backends\r\n\r\nNo healthy bakckends available.")
+                sock.sendall("HTTP/1.0 597 No Healthy Backends\r\n\r\nNo healthy backends available.")
             except socket.error, e:
                 if e.errno != errno.EPIPE:
                     raise
         except Exception, e:
-            logging.error("[%s] Internal Server Error, error: %s", request_id, e)
+            logging.error("Internal Server Error, error: %s\" - \"%s", e, request_id)
             try:
                 sock.sendall("HTTP/1.0 500 Internal Server Error\r\n\r\nThere has been an internal error in the load balancer.")
             except socket.error, e:
