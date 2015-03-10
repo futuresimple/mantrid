@@ -13,7 +13,7 @@ from eventlet.green import socket
 
 import mantrid.json
 
-from mantrid.actions import NoHealthyBackends, Unknown, Proxy, Empty, Static, Redirect, NoHosts, Spin
+from mantrid.actions import NoHealthyBackends, Unknown, Proxy, Empty, Static, Redirect, NoHosts, Spin, Alias
 from mantrid.config import SimpleConfig
 from mantrid.management import ManagementApp
 from mantrid.stats_socket import StatsSocket
@@ -51,6 +51,7 @@ class Balancer(object):
         "empty": Empty,
         "static": Static,
         "redirect": Redirect,
+        "alias": Alias,
         "unknown": Unknown,
         "spin": Spin,
         "no_hosts": NoHosts,
@@ -123,10 +124,11 @@ class Balancer(object):
     def _converted_from_old_format(self, objtree):
         hosts = objtree['hosts']
         for host, settings in hosts.items():
-            backends = settings[1]['backends']
-            if backends and not isinstance(backends[0], mantrid.backend.Backend):
-                new_backends = map(mantrid.backend.Backend, backends)
-                settings[1]['backends'] = new_backends
+            if settings[0] == "proxy":
+                backends = settings[1]['backends']
+                if backends and not isinstance(backends[0], mantrid.backend.Backend):
+                    new_backends = map(mantrid.backend.Backend, backends)
+                    settings[1]['backends'] = new_backends
         return objtree
 
     def load(self):
@@ -342,6 +344,7 @@ class Balancer(object):
                 host = headers['X-Loadbalance-To'] if 'X-Loadbalance-To' in headers else headers['LoadBalanceTo']
             except KeyError:
                 host = "unknown"
+            request_id = headers.get("X-Request-Id", "-")
             headers['Connection'] = "close\r"
             if not internal:
                 headers['X-Forwarded-For'] = address[0]
@@ -375,15 +378,17 @@ class Balancer(object):
                 stats_dict['bytes_received'] = stats_dict.get('bytes_received', 0) + sock.bytes_received
         except socket.error, e:
             if e.errno not in (errno.EPIPE, errno.ETIMEDOUT, errno.ECONNRESET):
+                logging.error("[%s] Loadbalancer socket error, error: %s", request_id, e)
                 logging.error(traceback.format_exc())
         except NoHealthyBackends, e:
-            logging.error("No healthy bakckends available for host '%s'" % host)
+            logging.error("[%s] No healthy bakckends available for host '%s'", request_id, host)
             try:
                 sock.sendall("HTTP/1.0 597 No Healthy Backends\r\n\r\nNo healthy bakckends available.")
             except socket.error, e:
                 if e.errno != errno.EPIPE:
                     raise
-        except:
+        except Exception, e:
+            logging.error("[%s] Internal Server Error, error: %s", request_id, e)
             logging.error(traceback.format_exc())
             try:
                 sock.sendall("HTTP/1.0 500 Internal Server Error\r\n\r\nThere has been an internal error in the load balancer.")
