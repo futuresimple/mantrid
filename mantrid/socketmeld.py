@@ -67,11 +67,11 @@ class SocketMelder(object):
         try:
             self.server.close()
         except:
-            logging.exception("Exception caught closing server socket, backend %s of %s", self.backend, self.host)
+            logging.error("Exception caught closing server socket, backend %s of %s", self.backend, self.host)
 
         try:
             self.client.close()
         except:
-            logging.exception("Exception caught closing client socket, backend: %s of %s", self.backend, self.host)
+            logging.error("Exception caught closing client socket, backend: %s of %s", self.backend, self.host)
 
         return self.data_handled

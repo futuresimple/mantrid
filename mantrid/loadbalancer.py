@@ -1,7 +1,6 @@
 import eventlet
 import errno
 import logging
-import traceback
 import mimetools
 import resource
 import os
@@ -218,8 +217,8 @@ class Balancer(object):
             pool.wait()
         except (KeyboardInterrupt, StopIteration, SystemExit):
             pass
-        except:
-            logging.error(traceback.format_exc())
+        except Exception, e:
+            logging.error("Unhandled Exception %s" % e)
         # We're done
         self.running = False
         logging.info("Exiting")
@@ -379,7 +378,6 @@ class Balancer(object):
         except socket.error, e:
             if e.errno not in (errno.EPIPE, errno.ETIMEDOUT, errno.ECONNRESET):
                 logging.error("[%s] Loadbalancer socket error, error: %s", request_id, e)
-                logging.error(traceback.format_exc())
         except NoHealthyBackends, e:
             logging.error("[%s] No healthy bakckends available for host '%s'", request_id, host)
             try:
@@ -389,7 +387,6 @@ class Balancer(object):
                     raise
         except Exception, e:
             logging.error("[%s] Internal Server Error, error: %s", request_id, e)
-            logging.error(traceback.format_exc())
             try:
                 sock.sendall("HTTP/1.0 500 Internal Server Error\r\n\r\nThere has been an internal error in the load balancer.")
             except socket.error, e:
@@ -399,8 +396,8 @@ class Balancer(object):
             try:
                 sock.close()
                 rfile.close()
-            except:
-                logging.error(traceback.format_exc())
+            except Exception, e:
+                logging.error("Unhandled Exception %s" % e)
 
     def _set_hosts(self, hosts):
         self.__dict__['hosts'] = ManagedHostDict(hosts)
