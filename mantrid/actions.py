@@ -174,7 +174,7 @@ class Proxy(Action):
         request_id = headers.get("X-Request-Id", "-")
         for attempt in range(self.attempts):
             if attempt > 0:
-                logging.warn("Retrying connection for host %s\" - \"%s", self.host, request_id)
+                logging.warn("[%s] Retrying connection for host %s", request_id, self.host)
 
             backend = self.select_backend()
             try:
@@ -187,12 +187,12 @@ class Proxy(Action):
                 backend.add_connection()
                 break
             except socket.error:
-                logging.error("Proxy socket error on connect() to %s of %s\" - \"%s", backend, self.host, request_id)
+                logging.error("[%s] Proxy socket error on connect() to %s of %s", request_id, backend, self.host)
                 self.blacklist(backend)
                 eventlet.sleep(self.delay)
                 continue
             except:
-                logging.warn("Proxy timeout on connect() to %s of %s\" - \"%s", backend, self.host, request_id)
+                logging.warn("[%s] Proxy timeout on connect() to %s of %s", request_id, backend, self.host)
                 self.blacklist(backend)
                 eventlet.sleep(self.delay)
                 continue
