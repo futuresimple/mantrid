@@ -187,7 +187,7 @@ class Proxy(Action):
                 backend.add_connection()
                 break
             except socket.error:
-                logging.exception("[%s] Proxy socket error on connect() to %s of %s", request_id, backend, self.host)
+                logging.error("[%s] Proxy socket error on connect() to %s of %s", request_id, backend, self.host)
                 self.blacklist(backend)
                 eventlet.sleep(self.delay)
                 continue
@@ -213,7 +213,7 @@ class Proxy(Action):
 
     def blacklist(self, backend):
         if self.healthcheck and not backend.blacklisted:
-            logging.warn("Blacklisting backend %s", backend)
+            logging.warn("Blacklisting backend %s of %s", backend, self.host)
             backend.blacklisted = True
 
 
