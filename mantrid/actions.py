@@ -18,7 +18,11 @@ from mantrid.socketmeld import SocketMelder
 
 class NoHealthyBackends(Exception):
     "Poll of usable backends is empty"
-    pass
+
+
+class AllConnectionAttemptsFailed(Exception):
+    "Failed to connect despite retries"
+
 
 class Action(object):
     "Base action. Doesn't do anything."
@@ -196,6 +200,9 @@ class Proxy(Action):
                 self.blacklist(backend)
                 eventlet.sleep(self.delay)
                 continue
+        else:
+            raise AllConnectionAttemptsFailed()
+
 
         # Function to help track data usage
         def send_onwards(data):
