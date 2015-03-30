@@ -49,7 +49,7 @@ class SocketMelder(object):
             # and want to have our custom error page to know when it happens. 
 
             if onkill == "stoc" and self.data_handled == 0:
-                out_sock.sendall("HTTP/1.0 594 Backend timeout\r\n\r\n")
+                out_sock.sendall("HTTP/1.0 594 Backend timeout\r\nConnection: close\r\nContent-length: 0\r\n\r\n")
             logging.warn("Timeout serving request to backend %s of %s", self.backend, self.host)
             return
 
