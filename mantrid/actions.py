@@ -31,7 +31,7 @@ class Action(object):
     def handle(self, sock, read_data, path, headers):
         raise NotImplementedError("You must use an Action subclass")
 
-    def blacklisted_backends():
+    def blacklisted_backends(self):
         return None
 
 
