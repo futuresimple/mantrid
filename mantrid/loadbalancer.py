@@ -375,6 +375,7 @@ class Balancer(object):
                 stats_dict['completed_requests'] = stats_dict.get('completed_requests', 0) + 1
                 stats_dict['bytes_sent'] = stats_dict.get('bytes_sent', 0) + sock.bytes_sent
                 stats_dict['bytes_received'] = stats_dict.get('bytes_received', 0) + sock.bytes_received
+                stats_dict['blacklisted_backends'] = action.blacklisted_backends()
         except socket.error, e:
             if e.errno not in (errno.EPIPE, errno.ETIMEDOUT, errno.ECONNRESET):
                 logging.error("[%s] Loadbalancer socket error, error: %s", request_id, e)
