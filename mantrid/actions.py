@@ -268,3 +268,7 @@ class Alias(Action):
 
     def handle(self, **kwargs):
         return self.aliased.handle(**kwargs)
+
+    def blacklisted_backends(self):
+        return self.aliased.blacklisted_backends()
+
