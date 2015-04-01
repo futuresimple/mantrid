@@ -149,8 +149,8 @@ class MantridCli(object):
     
     def action_stats(self, hostname=None):
         "Shows stats (possibly limited by hostname)"
-        format = "%-35s %-11s %-11s %-11s %-11s"
-        print format % ("HOST", "OPEN", "COMPLETED", "BYTES IN", "BYTES OUT")
+        format = "%-35s %-11s %-11s %-11s %-11s %-60s"
+        print format % ("HOST", "OPEN", "COMPLETED", "BYTES IN", "BYTES OUT", "BLACKLISTED BACKENDS")
         for host, details in sorted(self.client.stats(hostname).items()):
             print format % (
                 host,
@@ -158,6 +158,7 @@ class MantridCli(object):
                 details.get("completed_requests", 0),
                 details.get("bytes_received", 0),
                 details.get("bytes_sent", 0),
+                details.get("blacklisted_backends", "-"),
             )
 
 if __name__ == "__main__":
