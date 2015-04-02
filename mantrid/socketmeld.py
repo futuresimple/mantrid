@@ -6,7 +6,6 @@ import greenlet
 from eventlet.green import socket
 from eventlet.timeout import Timeout
 
-
 class SocketMelder(object):
     """
     Takes two sockets and directly connects them together.
@@ -44,6 +43,13 @@ class SocketMelder(object):
         except greenlet.GreenletExit:
             return
         except Timeout:
+            # This one prevents only from closing connection without any data nor status code returned
+            # from mantrid when no data was received from backend.
+            # When it happens, nginx reports 'upstream prematurely closed connection' and returns 500,
+            # and want to have our custom error page to know when it happens. 
+
+            if onkill == "stoc" and self.data_handled == 0:
+                out_sock.sendall("HTTP/1.0 594 Backend timeout\r\nConnection: close\r\nContent-length: 0\r\n\r\n")
             logging.warn("Timeout serving request to backend %s of %s", self.backend, self.host)
             return
 
