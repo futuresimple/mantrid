@@ -31,6 +31,9 @@ class Action(object):
     def handle(self, sock, read_data, path, headers):
         raise NotImplementedError("You must use an Action subclass")
 
+    def blacklisted_backends(self):
+        return None
+
 
 class Empty(Action):
     "Sends a code-only HTTP response"
@@ -155,7 +158,10 @@ class Proxy(Action):
 
     def valid_backends(self):
         return [b for b in self.backends if not b.blacklisted or not self.healthcheck]
-
+    
+    def blacklisted_backends(self):
+        return [b for b in self.backends if b.blacklisted]
+    
     def random(self):
         return random.choice(self.valid_backends())
 
@@ -262,3 +268,7 @@ class Alias(Action):
 
     def handle(self, **kwargs):
         return self.aliased.handle(**kwargs)
+
+    def blacklisted_backends(self):
+        return self.aliased.blacklisted_backends()
+
