@@ -395,6 +395,10 @@ class Balancer(object):
                     raise
         finally:
             try:
+                try:
+                    sock.shutdown(socket.SHUT_WR|socket.SHUT_RD)
+                except:
+                    pass
                 sock.close()
                 rfile.close()
             except Exception, e:
