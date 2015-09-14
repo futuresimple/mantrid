@@ -2,7 +2,9 @@ import logging
 
 import eventlet
 import greenlet
+import os
 
+from splice import splice
 from eventlet.green import socket
 from eventlet.timeout import Timeout
 
@@ -25,19 +27,23 @@ class SocketMelder(object):
         try:
             timeout = Timeout(self.transmission_timeout_seconds)
             try:
+                pipe_r, pipe_w = os.pipe()
                 while True:
-                    written = in_sock.recv(32768)
-                    if not written:
+                    chunk_size = 32768
+                    read = splice(in_sock.fileno(), None, pipe_w, None, chunk_size,
+                                     splice.SPLICE_F_MOVE | splice.SPLICE_F_MORE | splice.SPLICE_F_NONBLOCK)
+                    if not read:
                         try:
                             out_sock.shutdown(socket.SHUT_WR)
                         except socket.error:
                             self.threads[onkill].kill()
                         break
                     try:
-                        out_sock.sendall(written)
+                        splice(pipe_r, None, out_sock.fileno(), read,
+                               splice.SPLICE_F_MOVE | splice.SPLICE_F_MORE | splice.SPLICE_F_NONBLOCK)
                     except socket.error:
                         pass
-                    self.data_handled += len(written)
+                    self.data_handled += read
             finally:
                 timeout.cancel()
         except greenlet.GreenletExit:
@@ -46,7 +52,7 @@ class SocketMelder(object):
             # This one prevents only from closing connection without any data nor status code returned
             # from mantrid when no data was received from backend.
             # When it happens, nginx reports 'upstream prematurely closed connection' and returns 500,
-            # and want to have our custom error page to know when it happens. 
+            # and want to have our custom error page to know when it happens.
 
             if onkill == "stoc" and self.data_handled == 0:
                 out_sock.sendall("HTTP/1.0 594 Backend timeout\r\nConnection: close\r\nContent-length: 0\r\n\r\n")
